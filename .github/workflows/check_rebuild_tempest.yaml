@@ -1,0 +1,60 @@
+name: Check and Rebuild Tempest
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        description: The branch to run checks on and re-build images from
+        type: string
+        required: true
+
+jobs:
+  check-update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+      - name: Install yq
+        run: |
+          sudo snap install yq
+      - name: Check if a recent snap updates is found
+        id: check
+        run: |
+          # get the snap and its channel that the ROCK image is built on
+          snap=$(yq '.parts.[].stage-snaps.[]' rocks/tempest/rockcraft.yaml)
+          IFS='/' read -r name channel <<< "$snap"
+          echo $name, $channel
+
+          # parse date of the last release and reformat it to seconds
+          format='+%s'
+          last_release_date=$(snap info tempest | grep "2023.2/stable" | awk '{ print $3 }')
+          last_release_date_in_seconds=$(date -d "$last_release_date" "$format")
+
+          # confirm the validity of the release date
+          if [[ $? != 0 ]]; then
+            echo "$last_release_date is not a valid date."
+          fi
+
+          # get current date
+          cur_date=$(date)
+          cur_date_in_seconds=$(date -d "$cur_date" "$format")
+
+          # get the date difference between two days
+          date_diff=$(( ($cur_date_in_seconds - $last_release_date_in_seconds)/(60*60*24) ))
+          
+          # re-build image if the date difference is less than 5 days
+          if [ $date_diff -le 5 ]; then
+              echo "rebuild_image=1" >> $GITHUB_OUTPUT
+          else
+              echo "rebuild_image=0" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-publish:
+    needs: check-update
+    uses: ./.github/workflows/build_publish.yaml
+    if: ${{ needs.check-update.outputs.rebuild_image == 1 }}
+    with:
+      rocks: '[tempest]'
+      branch: ${{ inputs.branch }}
+      publish: true

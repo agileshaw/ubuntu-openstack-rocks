@@ -15,13 +15,13 @@ platforms:
   amd64:
 
 parts:
-    snap-tempest:
-      plugin: python
-      source: .
-      stage-snaps:
-      - tempest/2023.2/stable
-      stage-packages:
-      - cron
-      - python3-venv
-      python-packages:
-      - croniter
+  snap-tempest:
+    plugin: python
+    source: .
+    stage-snaps:
+    - tempest/2023.2/stable
+    stage-packages:
+    - cron
+    - python3-venv
+    python-packages:
+    - croniter
