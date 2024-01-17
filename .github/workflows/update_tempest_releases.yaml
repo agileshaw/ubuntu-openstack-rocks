@@ -2,14 +2,14 @@ name: Update Tempest Releases
 on:
   workflow_dispatch:
   schedule:
-    - cron: '12 1 * * 1,4' # run workflow at 1:12 (an arbitrary time) every Mon and Thu 
+    - cron: '12 1 * * 1,4'  # run workflow at 1:12 (an arbitrary time) every Mon and Thu 
 
 jobs:
   check-update:
     strategy:
       fail-fast: false
       matrix:
-        branch: ["main", "stable/2023.1"]
+        branch: ["main", "stable/2023.1"]  # for all active OpenStack release branches
     uses: ./.github/workflows/check_rebuild_tempest.yaml
     with:
       branch: ${{ matrix.branch }}
