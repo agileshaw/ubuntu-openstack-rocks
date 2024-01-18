@@ -5,11 +5,42 @@ on:
     - cron: '12 1 * * 1,4'  # run workflow at 1:12 (an arbitrary time) every Mon and Thu 
 
 jobs:
+  get_release_branches:
+    runs-on: ubuntu-latest
+    outputs:
+      branches: ${{ steps.get-branches.outputs.branches }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install jq
+        run: |
+          sudo apt install jq
+      - name: Get branches
+        id: get-branches
+        run: |
+          # filter branches prefixed with `stable/*` in remote repo
+          filtered_branches=$(git branch -a --list "origin/stable/*" --format='%(refname:short)' | sed 's/origin\///')
+
+          # add `main` branch as it tracks the latest release in development
+          branches_array="main"
+
+          # create a json list of branches
+          while IFS= read -r line
+          do
+            branches_array+=($line)
+          done < <(printf '%s\n' "$filtered_branches")
+          branches_json=$(jq -c -n '$ARGS.positional' --args -- "${branches_array[@]}")
+          echo $branches_json
+
+          echo "branches=$branches_json" >> $GITHUB_OUTPUT
+
   check-update:
+    needs: get_release_branches
     strategy:
       fail-fast: false
       matrix:
-        branch: ["main", "stable/2023.1"]  # for all active OpenStack release branches
+        branch: ${{ fromJson(needs.get_release_branches.outputs.branches) }}
     uses: ./.github/workflows/check_rebuild_tempest.yaml
     with:
       branch: ${{ matrix.branch }}
